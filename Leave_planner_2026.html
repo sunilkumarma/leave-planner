@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Leave Planner 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --surface: #16181f;
+    --surface2: #1e2029;
+    --border: #2a2d38;
+    --text: #e8e9f0;
+    --muted: #6b6f82;
+    --accent: #f0c040;
+    --accent2: #e07b5a;
+    --m0: #5b8fff;
+    --m1: #7ecb8e;
+    --m2: #f78aad;
+    --m3: #c97cf5;
+    --m4: #f0a45b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh; padding: 0;
+  }
+
+  /* ── Identity overlay ── */
+  #identityOverlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 0;
+  }
+  .identity-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 36px;
+    width: min(420px, 90vw);
+    text-align: center;
+  }
+  .identity-box h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem; margin-bottom: 6px;
+  }
+  .identity-box h2 span { color: var(--accent); }
+  .identity-box p { color: var(--muted); font-size: 0.75rem; margin-bottom: 28px; }
+  .member-pick-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+  }
+  .member-pick-btn {
+    background: var(--surface2); border: 2px solid var(--border);
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; padding: 14px 10px;
+    border-radius: 8px; cursor: pointer;
+    transition: all 0.18s; display: flex; align-items: center; gap: 8px;
+    justify-content: center;
+  }
+  .member-pick-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .member-pick-btn.selected { color: #000; }
+  .member-pick-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .identity-btn {
+    width: 100%; background: var(--accent); color: #000;
+    border: none; font-family: 'DM Mono', monospace;
+    font-size: 0.82rem; font-weight: 500; padding: 12px;
+    border-radius: 6px; cursor: pointer; transition: opacity 0.15s;
+  }
+  .identity-btn:hover { opacity: 0.85; }
+
+  /* ── Top bar ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem; line-height: 1;
+  }
+  .topbar-left h1 span { color: var(--accent); }
+  .topbar-left small { color: var(--muted); font-size: 0.65rem; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .you-badge {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 12px; font-size: 0.72rem;
+  }
+  .you-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #7ecb8e; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .sync-label { font-size: 0.65rem; color: var(--muted); }
+  .conflict-badge {
+    background: #3a1a14; border: 1px solid var(--accent2);
+    color: var(--accent2); font-size: 0.65rem; padding: 5px 12px; border-radius: 20px;
+    display: none;
+  }
+  .conflict-badge.show { display: block; }
+  .switch-user-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.65rem; padding: 5px 10px; border-radius: 4px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .switch-user-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Layout ── */
+  .main-layout {
+    display: grid; grid-template-columns: 260px 1fr;
+    gap: 0; flex: 1;
+  }
+  @media(max-width:860px) { .main-layout { grid-template-columns: 1fr; } }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 20px 16px; background: var(--surface);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel-title {
+    font-size: 0.6rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+  .member-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+  }
+  .member-row:last-child { border-bottom: none; }
+  .member-dot2 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .member-row-name { font-size: 0.78rem; flex: 1; }
+  .member-row-days { font-size: 0.62rem; color: var(--muted); }
+  .you-label {
+    font-size: 0.55rem; background: var(--accent);
+    color: #000; border-radius: 3px; padding: 1px 5px;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-box { background: var(--surface2); border-radius: 6px; padding: 10px; text-align: center; }
+  .stat-num { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--accent); }
+  .stat-lbl { font-size: 0.58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+
+  /* ── Add leave form ── */
+  .form-section { background: var(--surface2); border-radius: 8px; padding: 16px; }
+  .form-group { margin-bottom: 11px; }
+  label { font-size: 0.6rem; color: var(--muted); display: block; margin-bottom: 5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  select, input[type="date"] {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; padding: 7px 9px; border-radius: 4px; outline: none; appearance: none;
+  }
+  select:focus, input[type="date"]:focus { border-color: var(--accent); }
+  .for-me-only { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; margin-bottom: 10px; }
+  .toggle-wrap { position: relative; width: 34px; height: 18px; }
+  .toggle-wrap input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; background: var(--border);
+    border-radius: 18px; cursor: pointer; transition: 0.2s;
+  }
+  .toggle-slider:before {
+    content:''; position:absolute;
+    width:12px; height:12px; left:3px; top:3px;
+    background:#fff; border-radius:50%; transition:0.2s;
+  }
+  .toggle-wrap input:checked + .toggle-slider { background: var(--accent); }
+  .toggle-wrap input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+  .member-checkboxes { display: flex; flex-direction: column; gap: 5px; }
+  .mcheck-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 0.73rem; cursor: pointer;
+  }
+  .mcheck-label input { display: none; }
+  .mcheck-box {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.15s;
+  }
+  .mcheck-label input:checked ~ .mcheck-box { border-color: currentColor; background: currentColor; }
+  .mcheck-tick { font-size: 9px; color: #000; display: none; }
+  .mcheck-label input:checked ~ .mcheck-box .mcheck-tick { display: block; }
+
+  .btn-add {
+    width: 100%; background: var(--accent); color: #000;
+    border: none; font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; font-weight: 500; padding: 9px;
+    border-radius: 4px; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-add:hover { opacity: 0.85; }
+
+  /* ── Main content ── */
+  .content { padding: 24px 28px; flex: 1; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    background: none; border: none; color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: 0.73rem;
+    padding: 9px 18px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* calendar */
+  .cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .cal-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); width: 28px; height: 28px; border-radius: 4px;
+    cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s;
+  }
+  .cal-btn:hover { border-color: var(--accent); }
+  .cal-month { font-family: 'DM Serif Display', serif; font-size: 1.15rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: var(--muted); }
+  .leg-dot { width: 9px; height: 9px; border-radius: 2px; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-hdr { text-align: center; font-size: 0.58rem; color: var(--muted); padding: 4px 0; letter-spacing: 0.08em; text-transform: uppercase; }
+  .cal-cell {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; min-height: 70px; padding: 5px;
+    transition: border-color 0.15s; cursor: default;
+  }
+  .cal-cell.empty { background: transparent; border-color: transparent; }
+  .cal-cell.today { border-color: var(--accent); }
+  .cal-cell.conflict-day { border-color: var(--accent2) !important; }
+  .cal-cell.weekend .day-num { color: #444; }
+  .day-num { font-size: 0.65rem; color: var(--muted); margin-bottom: 3px; }
+  .cal-cell.today .day-num { color: var(--accent); }
+  .leave-pip {
+    font-size: 0.52rem; border-radius: 2px; padding: 1px 4px;
+    margin-bottom: 2px; color: #000; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .conf-marker {
+    float: right; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent2);
+    margin-top: 1px;
+  }
+
+  /* list */
+  .filter-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.62rem; padding: 4px 11px; border-radius: 20px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .leave-table { width: 100%; border-collapse: collapse; }
+  .leave-table th {
+    text-align: left; font-size: 0.6rem; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  .leave-table td {
+    padding: 10px 12px; font-size: 0.76rem;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .leave-table tr:last-child td { border-bottom: none; }
+  .leave-table tr:hover td { background: var(--surface2); }
+  .mtag {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--surface2); font-size: 0.68rem;
+    padding: 2px 8px; border-radius: 3px; margin: 1px;
+  }
+  .mtag-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .conf-flag {
+    background: #3a1a14; color: var(--accent2);
+    font-size: 0.58rem; padding: 2px 7px; border-radius: 3px; margin-left: 5px;
+  }
+  .btn-del {
+    background: transparent; border: 1px solid #3a2020;
+    color: var(--accent2); font-family: 'DM Mono', monospace;
+    font-size: 0.62rem; padding: 3px 9px; border-radius: 3px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-del:hover { background: #3a1a14; }
+  .empty-st { text-align: center; color: var(--muted); padding: 48px 0; font-size: 0.8rem; }
+  .empty-st .bigcircle { font-family: 'DM Serif Display', serif; font-size: 2.5rem; color: var(--border); display: block; margin-bottom: 8px; }
+
+  /* loading */
+  #loadingOverlay {
+    position:fixed; inset:0; background: var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    z-index:2000; flex-direction:column; gap:12px;
+  }
+  .spinner {
+    width: 32px; height: 32px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--muted); font-size: 0.75rem; }
+
+  /* toast */
+  #toast {
+    position:fixed; bottom:20px; right:20px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.75rem; padding: 11px 18px;
+    border-radius: 6px; z-index:999;
+    transform: translateY(60px); opacity:0;
+    transition: all 0.25s; max-width: 280px;
+  }
+  #toast.show { transform:translateY(0); opacity:1; }
+  #toast.err { border-color: var(--accent2); color: var(--accent2); }
+
+  /* activity feed */
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.72rem;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .act-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .act-time { color: var(--muted); font-size: 0.6rem; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Syncing team data…</div>
+</div>
+
+<!-- Identity chooser -->
+<div id="identityOverlay" style="display:none;">
+  <div class="identity-box">
+    <h2>Leave Planner <span>'26</span></h2>
+    <p>Who are you? Pick your name to get started.</p>
+    <div class="member-pick-grid" id="memberPickGrid"></div>
+    <button class="identity-btn" onclick="confirmIdentity()">Continue →</button>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Leave Planner <span>'26</span></h1>
+      <small>5-member team · shared workspace</small>
+    </div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:5px;">
+        <div class="sync-dot"></div>
+        <span class="sync-label">Live sync</span>
+      </div>
+      <div class="conflict-badge" id="conflictBadge">⚠ Overlapping leaves</div>
+      <div class="you-badge" id="youBadge">
+        <div class="you-dot" id="youDot"></div>
+        <span id="youName"></span>
+      </div>
+      <button class="switch-user-btn" onclick="switchUser()">Switch</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Team -->
+      <div>
+        <div class="panel-title">Team</div>
+        <div id="teamList"></div>
+      </div>
+
+      <!-- Stats -->
+      <div>
+        <div class="panel-title">Overview</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num" id="sTotal">0</div><div class="stat-lbl">Leaves</div></div>
+          <div class="stat-box"><div class="stat-num" id="sDays">0</div><div class="stat-lbl">Days Off</div></div>
+          <div class="stat-box"><div class="stat-num" id="sConf" style="color:var(--accent2)">0</div><div class="stat-lbl">Conflicts</div></div>
+          <div class="stat-box"><div class="stat-num" id="sMonths">0</div><div class="stat-lbl">Months</div></div>
+        </div>
+      </div>
+
+      <!-- Add leave -->
+      <div>
+        <div class="panel-title">Add Leave</div>
+        <div class="form-section">
+          <div class="for-me-only">
+            <label class="toggle-wrap" style="margin:0;">
+              <input type="checkbox" id="forMeToggle" checked onchange="toggleForMe()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="color:var(--muted); font-size:0.72rem;" id="forMeLabel">For me only</span>
+          </div>
+
+          <div class="form-group" id="memberCheckGroup" style="display:none;">
+            <label>Select Members</label>
+            <div class="member-checkboxes" id="memberCheckboxes"></div>
+          </div>
+
+          <div class="form-group">
+            <label>From</label>
+            <input type="date" id="fromDate" min="2026-01-01" max="2026-12-31" value="2026-01-05">
+          </div>
+          <div class="form-group">
+            <label>To</label>
+            <input type="date" id="toDate" min="2026-01-01" max="2026-12-31" value="2026-01-05">
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="leaveType">
+              <option>ROH</option>
+              <option>Sick Leave</option>
+              <option>Work from Home</option>
+              <option>Personal Leave</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <button class="btn-add" onclick="addLeave()">+ Add Leave</button>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div>
+        <div class="panel-title">Recent Activity</div>
+        <div id="activityFeed"><div style="color:var(--muted);font-size:0.72rem;">No activity yet.</div></div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('calendar', this)">Calendar</button>
+        <button class="tab" onclick="switchTab('list', this)">All Leaves</button>
+      </div>
+
+      <!-- Calendar -->
+      <div id="calView">
+        <div class="cal-nav">
+          <button class="cal-btn" onclick="chMonth(-1)">‹</button>
+          <span class="cal-month" id="calMonthLbl"></span>
+          <button class="cal-btn" onclick="chMonth(1)">›</button>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+
+      <!-- List -->
+      <div id="listView" style="display:none;">
+        <div class="filter-chips" id="filterChips"></div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <table class="leave-table">
+            <thead>
+              <tr>
+                <th>Member(s)</th><th>From</th><th>To</th><th>Days</th><th>Type</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="listBody"></tbody>
+          </table>
+          <div class="empty-st" id="emptySt"><span class="bigcircle">○</span>No leaves planned yet.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────
+const COLORS = ['#5b8fff','#7ecb8e','#f78aad','#c97cf5','#f0a45b'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const STORAGE_KEY = 'team_leave_2026_data';
+const ACTIVITY_KEY = 'team_leave_2026_activity';
+const DEFAULT_MEMBERS = ['Asma','Jyothsna','Supriya','Sunil','Thushara'];
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let members = DEFAULT_MEMBERS.map((n,i) => ({id: i, name: n}));
+let leaves = [];
+let activity = [];
+let currentUser = null; // member id
+let currentMonth = 0;
+let currentTab = 'calendar';
+let currentFilter = 'all';
+let syncInterval = null;
+
+// ─────────────────────────────────────────
+//  STORAGE (shared)
+// ─────────────────────────────────────────
+async function loadShared() {
+  try {
+    const r = await window.storage.get(STORAGE_KEY, true);
+    if (r && r.value) {
+      const d = JSON.parse(r.value);
+      if (d.members) members = d.members;
+      if (d.leaves)  leaves  = d.leaves;
+    }
+  } catch(e) { /* first load */ }
+  try {
+    const r = await window.storage.get(ACTIVITY_KEY, true);
+    if (r && r.value) activity = JSON.parse(r.value);
+  } catch(e) {}
+}
+
+async function saveShared() {
+  await window.storage.set(STORAGE_KEY, JSON.stringify({ members, leaves }), true);
+}
+
+async function saveActivity() {
+  await window.storage.set(ACTIVITY_KEY, JSON.stringify(activity.slice(-20)), true);
+}
+
+async function syncFromServer() {
+  try {
+    const r = await window.storage.get(STORAGE_KEY, true);
+    if (r && r.value) {
+      const d = JSON.parse(r.value);
+      if (d.members) members = d.members;
+      if (d.leaves)  leaves  = d.leaves;
+    }
+    const r2 = await window.storage.get(ACTIVITY_KEY, true);
+    if (r2 && r2.value) activity = JSON.parse(r2.value);
+    renderAll();
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────
+async function boot() {
+  await loadShared();
+  document.getElementById('loadingOverlay').style.display = 'none';
+
+  // check if user already picked
+  const saved = localStorage.getItem('my_member_id_2026');
+  if (saved !== null && members[+saved]) {
+    currentUser = +saved;
+    startApp();
+  } else {
+    showIdentityPicker();
+  }
+}
+
+function showIdentityPicker() {
+  const grid = document.getElementById('memberPickGrid');
+  grid.innerHTML = members.map((m,i) => `
+    <button class="member-pick-btn" id="mpb_${i}" onclick="pickMember(${i})"
+            style="border-color:${COLORS[i]}20;">
+      <div class="member-pick-dot" style="background:${COLORS[i]}"></div>
+      ${m.name}
+    </button>
+  `).join('');
+  document.getElementById('identityOverlay').style.display = 'flex';
+}
+
+let pickedId = null;
+function pickMember(id) {
+  pickedId = id;
+  document.querySelectorAll('.member-pick-btn').forEach((b,i) => {
+    b.style.borderColor = COLORS[i] + '20';
+    b.style.background = 'var(--surface2)';
+    b.classList.remove('selected');
+    b.style.color = 'var(--text)';
+  });
+  const btn = document.getElementById('mpb_'+id);
+  btn.style.borderColor = COLORS[id];
+  btn.style.background  = COLORS[id] + '22';
+  btn.style.color       = COLORS[id];
+  btn.classList.add('selected');
+}
+
+function confirmIdentity() {
+  if (pickedId === null) { toast('Please pick your name first', true); return; }
+  currentUser = pickedId;
+  localStorage.setItem('my_member_id_2026', pickedId);
+  document.getElementById('identityOverlay').style.display = 'none';
+  startApp();
+}
+
+function switchUser() {
+  localStorage.removeItem('my_member_id_2026');
+  pickedId = null;
+  showIdentityPicker();
+}
+
+function startApp() {
+  document.getElementById('app').style.display = 'flex';
+  // Topbar badge
+  document.getElementById('youName').textContent = members[currentUser].name;
+  document.getElementById('youDot').style.background = COLORS[currentUser];
+  // pre-tick current user's checkbox
+  renderMemberCheckboxes();
+  renderAll();
+  // auto-sync every 8 seconds
+  syncInterval = setInterval(syncFromServer, 8000);
+}
+
+// ─────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────
+function renderAll() {
+  renderTeamList();
+  renderLegend();
+  renderCalendar();
+  renderListView();
+  renderFilterChips();
+  renderActivity();
+  updateStats();
+  document.getElementById('conflictBadge').classList.toggle('show', countConflictDays() > 0);
+}
+
+function renderTeamList() {
+  const el = document.getElementById('teamList');
+  el.innerHTML = members.map((m,i) => `
+    <div class="member-row">
+      <div class="member-dot2" style="background:${COLORS[i]}"></div>
+      <span class="member-row-name">${m.name}</span>
+      ${i === currentUser ? '<span class="you-label">you</span>' : ''}
+      <span class="member-row-days">${getMemberDays(i)}d</span>
+    </div>
+  `).join('');
+}
+
+function getMemberDays(id) {
+  return leaves.filter(l => l.members.includes(id)).reduce((s,l) => s + bizDays(l.from, l.to), 0);
+}
+
+function renderMemberCheckboxes() {
+  const el = document.getElementById('memberCheckboxes');
+  el.innerHTML = members.map((m,i) => `
+    <label class="mcheck-label" style="color:${COLORS[i]}">
+      <input type="checkbox" value="${i}" ${i === currentUser ? 'checked' : ''}>
+      <div class="mcheck-box"><span class="mcheck-tick">✓</span></div>
+      <span style="color:var(--text)">${m.name}</span>
+    </label>
+  `).join('');
+}
+
+function toggleForMe() {
+  const on = document.getElementById('forMeToggle').checked;
+  document.getElementById('forMeLabel').textContent = on ? 'For me only' : 'For specific members';
+  document.getElementById('memberCheckGroup').style.display = on ? 'none' : 'block';
+}
+
+function renderLegend() {
+  document.getElementById('legend').innerHTML =
+    members.map((m,i) => `<div class="leg-item"><div class="leg-dot" style="background:${COLORS[i]}"></div>${m.name.split(' ')[0]}</div>`).join('') +
+    `<div class="leg-item"><div class="leg-dot" style="background:var(--accent2);border-radius:50%;"></div>Conflict</div>`;
+}
+
+function renderCalendar() {
+  document.getElementById('calMonthLbl').textContent = MONTHS[currentMonth] + ' 2026';
+  const dateMap = buildDateMap();
+  const firstDay = new Date(2026, currentMonth, 1).getDay();
+  const totalDays = new Date(2026, currentMonth+1, 0).getDate();
+  const today = new Date().toISOString().slice(0,10);
+  const grid = document.getElementById('calGrid');
+
+  let html = DAYS.map(d=>`<div class="cal-hdr">${d}</div>`).join('');
+  for (let i=0;i<firstDay;i++) html += `<div class="cal-cell empty"></div>`;
+
+  for (let day=1; day<=totalDays; day++) {
+    const ds = `2026-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dow = new Date(2026, currentMonth, day).getDay();
+    const mems = dateMap[ds] || [];
+    const hasConf = mems.length > 1;
+    let cls = 'cal-cell';
+    if (dow===0||dow===6) cls += ' weekend';
+    if (ds === today) cls += ' today';
+    if (hasConf) cls += ' conflict-day';
+
+    const pips = mems.map(mid => `<div class="leave-pip" style="background:${COLORS[mid]}">${members[mid].name.split(' ')[0]}</div>`).join('');
+
+    html += `<div class="${cls}">
+      <div class="day-num">${hasConf?'<span class="conf-marker"></span>':''}${day}</div>
+      ${pips}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function buildDateMap() {
+  const map = {};
+  for (const l of leaves) {
+    let d = new Date(l.from), end = new Date(l.to);
+    while (d <= end) {
+      const k = d.toISOString().slice(0,10);
+      if (!map[k]) map[k] = [];
+      l.members.forEach(m => { if (!map[k].includes(m)) map[k].push(m); });
+      d.setDate(d.getDate()+1);
+    }
+  }
+  return map;
+}
+
+function countConflictDays() {
+  return Object.values(buildDateMap()).filter(s=>s.length>1).length;
+}
+
+function renderFilterChips() {
+  const el = document.getElementById('filterChips');
+  el.innerHTML = `<button class="chip ${currentFilter==='all'?'active':''}" onclick="setFilter('all',this)">All</button>` +
+    members.map((m,i) => `<button class="chip ${currentFilter===i?'active':''}" onclick="setFilter(${i},this)"
+      style="${currentFilter===i?`background:${COLORS[i]};color:#000;border-color:${COLORS[i]}`:''}">${m.name.split(' ')[0]}</button>`).join('');
+}
+
+function setFilter(v, btn) {
+  currentFilter = v;
+  renderFilterChips();
+  renderListView();
+}
+
+function renderListView() {
+  const filtered = currentFilter === 'all'
+    ? leaves
+    : leaves.filter(l => l.members.includes(+currentFilter));
+  const sorted = [...filtered].sort((a,b)=>a.from.localeCompare(b.from));
+  const tbody = document.getElementById('listBody');
+  const empty = document.getElementById('emptySt');
+
+  if (sorted.length === 0) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const dateMap = buildDateMap();
+  tbody.innerHTML = sorted.map(l => {
+    const tags = l.members.map(mid=>`<span class="mtag"><span class="mtag-dot" style="background:${COLORS[mid]}"></span>${members[mid].name}</span>`).join('');
+    let conf = false;
+    let d=new Date(l.from), end=new Date(l.to);
+    while(d<=end){ if((dateMap[d.toISOString().slice(0,10)]||[]).length>1){conf=true;break;} d.setDate(d.getDate()+1); }
+    const canDel = l.addedBy === currentUser;
+    return `<tr>
+      <td>${tags}</td>
+      <td>${fmt(l.from)}</td><td>${fmt(l.to)}</td>
+      <td>${bizDays(l.from,l.to)}d</td>
+      <td style="color:var(--muted)">${l.type}${conf?'<span class="conf-flag">conflict</span>':''}</td>
+      <td>${canDel?`<button class="btn-del" onclick="removeLeave(${l.id})">✕</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderActivity() {
+  const el = document.getElementById('activityFeed');
+  if (!activity.length) { el.innerHTML='<div style="color:var(--muted);font-size:0.72rem;">No activity yet.</div>'; return; }
+  el.innerHTML = [...activity].reverse().slice(0,6).map(a => {
+    const idx = a.memberId !== undefined ? a.memberId : 0;
+    return `<div class="activity-item">
+      <div class="act-dot" style="background:${COLORS[idx]}"></div>
+      <div>
+        <div>${a.text}</div>
+        <div class="act-time">${a.time}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  document.getElementById('sTotal').textContent = leaves.length;
+  document.getElementById('sDays').textContent  = leaves.reduce((s,l)=>s+bizDays(l.from,l.to),0);
+  document.getElementById('sConf').textContent  = countConflictDays();
+  document.getElementById('sMonths').textContent = new Set(leaves.map(l=>l.from.slice(0,7))).size;
+}
+
+// ─────────────────────────────────────────
+//  ACTIONS
+// ─────────────────────────────────────────
+async function addLeave() {
+  const forMe = document.getElementById('forMeToggle').checked;
+  let mems;
+  if (forMe) {
+    mems = [currentUser];
+  } else {
+    mems = [...document.querySelectorAll('#memberCheckboxes input:checked')].map(c=>+c.value);
+    if (!mems.length) { toast('Select at least one member', true); return; }
+  }
+
+  const from = document.getElementById('fromDate').value;
+  const to   = document.getElementById('toDate').value;
+  const type = document.getElementById('leaveType').value;
+
+  if (!from||!to) { toast('Please select dates', true); return; }
+  if (!from.startsWith('2026')||!to.startsWith('2026')) { toast('Only 2026 dates', true); return; }
+  if (from > to) { toast('From must be ≤ To', true); return; }
+
+  // check conflict
+  const willConflict = checkConflict(mems, from, to);
+
+  const leave = { id: Date.now(), members: mems, from, to, type, addedBy: currentUser };
+  leaves.push(leave);
+
+  // activity
+  const memNames = mems.map(m=>members[m].name.split(' ')[0]).join(', ');
+  logActivity(currentUser, `${members[currentUser].name.split(' ')[0]} added leave for ${memNames} (${fmt(from)}–${fmt(to)})`);
+
+  await saveShared();
+  renderAll();
+
+  if (willConflict) toast(`⚠ Overlap detected! Check the calendar.`, true);
+  else toast(`Leave added — ${bizDays(from,to)} working days`);
+}
+
+async function removeLeave(id) {
+  const l = leaves.find(x=>x.id===id);
+  if (!l) return;
+  if (l.addedBy !== currentUser) { toast('You can only delete your own leaves', true); return; }
+  leaves = leaves.filter(x=>x.id!==id);
+  logActivity(currentUser, `${members[currentUser].name.split(' ')[0]} removed a leave entry`);
+  await saveShared();
+  renderAll();
+  toast('Leave removed');
+}
+
+function checkConflict(newMems, from, to) {
+  for (const l of leaves) {
+    if (l.from <= to && from <= l.to) {
+      if (l.members.some(m => newMems.includes(m))) return true;
+    }
+  }
+  return false;
+}
+
+function logActivity(memberId, text) {
+  const now = new Date();
+  activity.push({ memberId, text, time: now.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'}) + ' · ' + now.toLocaleDateString('en-IN',{day:'numeric',month:'short'}) });
+  saveActivity();
+}
+
+// ─────────────────────────────────────────
+//  NAV
+// ─────────────────────────────────────────
+function chMonth(d) { currentMonth = Math.max(0, Math.min(11, currentMonth+d)); renderCalendar(); }
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('calView').style.display  = tab==='calendar'?'block':'none';
+  document.getElementById('listView').style.display = tab==='list'?'block':'none';
+  if (tab==='list') { renderFilterChips(); renderListView(); }
+}
+
+// ─────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────
+function bizDays(from, to) {
+  let n=0, d=new Date(from), end=new Date(to);
+  while(d<=end){ const w=d.getDay(); if(w!==0&&w!==6)n++; d.setDate(d.getDate()+1); }
+  return n||1;
+}
+function fmt(s) {
+  return new Date(s).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+}
+function toast(msg, err=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show'+(err?' err':'');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.className='',3200);
+}
+
+// ─────────────────────────────────────────
+//  START
+// ─────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>
